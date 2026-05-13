@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Errore — ASP Messina</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>body { background: linear-gradient(180deg,#eff5fb 0%,#e3edf9 100%) fixed; }</style>
+</head>
+<body class="font-sans min-h-screen text-slate-800">
+<header class="text-white" style="background:linear-gradient(135deg,#0b3d91,#0066cc);">
+    <div class="max-w-3xl mx-auto px-5 py-4 flex items-center gap-3">
+        <i data-lucide="shield-alert" class="w-5 h-5"></i>
+        <div class="font-bold tracking-wide">ASP Messina</div>
+    </div>
+</header>
+<main class="max-w-3xl mx-auto px-5 py-10">
+    <div class="bg-white rounded-2xl shadow p-8 ring-1 ring-slate-100 text-center">
+        <i data-lucide="alert-triangle" class="w-12 h-12 mx-auto text-orange-500"></i>
+        <h1 class="text-2xl font-extrabold text-orange-700 mt-3">Si è verificato un problema</h1>
+        <p class="text-slate-500 mt-2 max-w-md mx-auto">Riprova tra qualche istante. Se il problema persiste, contatta l'amministratore di sistema.</p>
+        <a href="./" class="inline-flex items-center gap-2 mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-lg transition">
+            <i data-lucide="home" class="w-4 h-4"></i> Torna alla home
+        </a>
+    </div>
+</main>
+<script>lucide.createIcons({ attrs: { 'stroke-width': 2 } });</script>
+</body>
+</html>

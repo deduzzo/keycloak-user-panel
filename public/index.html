@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>ASP Messina — Gestione accesso a due fattori</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand:   { 50:'#eff6ff',100:'#dbeafe',500:'#0066cc',600:'#0058b2',700:'#004c99',800:'#0b3d91' },
+                        accent:  { 500:'#0a8554' },
+                        warning: { 500:'#c2410c' },
+                    },
+                    boxShadow: { soft: '0 10px 30px -10px rgba(11,61,145,0.18)' },
+                    fontFamily: { sans: ['system-ui','-apple-system','Segoe UI','Roboto','Helvetica','Arial','sans-serif'] },
+                },
+            },
+        };
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background: linear-gradient(180deg,#eff5fb 0%,#e3edf9 100%) fixed; }
+        .gradient-header { background: linear-gradient(135deg,#0b3d91 0%,#0066cc 100%); }
+        .icon-tile { background: radial-gradient(circle at 30% 30%, rgba(0,102,204,.10), rgba(0,102,204,.02)); }
+        .toast-in { animation: toastIn .25s ease-out both; }
+        @keyframes toastIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+        .skeleton { background: linear-gradient(90deg,#e5edf6 0%,#f1f6fc 50%,#e5edf6 100%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; border-radius: 10px; }
+        @keyframes shimmer { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+    </style>
+</head>
+<body class="font-sans text-slate-800 min-h-screen">
+
+<header class="gradient-header text-white">
+    <div class="max-w-4xl mx-auto px-5 py-4 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3 min-w-0">
+            <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/15 ring-1 ring-white/20">
+                <i data-lucide="shield-check" class="w-5 h-5"></i>
+            </span>
+            <div class="min-w-0">
+                <div class="font-bold tracking-wide text-base sm:text-lg">ASP Messina</div>
+                <div class="text-xs sm:text-[13px] opacity-85 truncate">Gestione accesso a due fattori</div>
+            </div>
+        </div>
+        <div id="user-box" class="flex items-center gap-3 text-sm"></div>
+    </div>
+</header>
+
+<main class="max-w-4xl mx-auto px-5 py-7 space-y-5">
+
+    <!-- Saluto + metodo di accesso -->
+    <section class="bg-white rounded-2xl shadow-soft p-6 ring-1 ring-slate-100">
+        <h1 id="hello" class="text-xl sm:text-2xl font-extrabold text-brand-800">Caricamento…</h1>
+        <p id="amr-info" class="text-sm text-slate-500 mt-1"></p>
+    </section>
+
+    <!-- Metodi attivi -->
+    <section class="bg-white rounded-2xl shadow-soft p-6 ring-1 ring-slate-100">
+        <div class="flex items-start justify-between gap-3 mb-4">
+            <div>
+                <h2 class="text-lg font-bold text-brand-800 flex items-center gap-2">
+                    <i data-lucide="key-round" class="w-5 h-5"></i>
+                    Metodi attivi
+                </h2>
+                <p class="text-sm text-slate-500 mt-1">Tutti i tuoi fattori di sicurezza configurati. Almeno uno deve restare attivo se entri con username e codice fiscale.</p>
+            </div>
+        </div>
+        <div id="creds-list" class="space-y-3">
+            <div class="skeleton h-16"></div>
+            <div class="skeleton h-16"></div>
+        </div>
+    </section>
+
+    <!-- Aggiungi metodo -->
+    <section class="bg-white rounded-2xl shadow-soft p-6 ring-1 ring-slate-100">
+        <h2 class="text-lg font-bold text-brand-800 flex items-center gap-2">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+            Aggiungi un nuovo metodo
+        </h2>
+        <p class="text-sm text-slate-500 mt-1 mb-4">Verrai brevemente reindirizzato al sistema di accesso ASP per completare la registrazione.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+            <button data-method="totp"
+                    class="group text-left p-5 rounded-xl bg-white border-2 border-slate-200 hover:border-brand-500 hover:shadow-soft transition-all active:scale-[0.99]">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="icon-tile w-12 h-12 rounded-xl inline-flex items-center justify-center text-brand-600">
+                        <i data-lucide="smartphone" class="w-6 h-6"></i>
+                    </span>
+                    <span class="font-bold text-brand-800">App Authenticator</span>
+                </div>
+                <div class="text-[13px] text-slate-500 leading-relaxed">Google Authenticator, FreeOTP, Microsoft Authenticator. Scansiona un QR code con il tuo smartphone.</div>
+            </button>
+
+            <button data-method="webauthn"
+                    class="group text-left p-5 rounded-xl bg-white border-2 border-slate-200 hover:border-accent-500 hover:shadow-soft transition-all active:scale-[0.99]">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="w-12 h-12 rounded-xl inline-flex items-center justify-center text-accent-500"
+                          style="background:radial-gradient(circle at 30% 30%, rgba(10,133,84,.10), rgba(10,133,84,.02))">
+                        <i data-lucide="fingerprint" class="w-6 h-6"></i>
+                    </span>
+                    <span class="font-bold text-emerald-800">Chiave o Passkey (FIDO2)</span>
+                </div>
+                <div class="text-[13px] text-slate-500 leading-relaxed">YubiKey, Touch ID, Windows Hello. Sicurezza alta, no codici da digitare.</div>
+            </button>
+
+            <button data-method="email"
+                    class="group text-left p-5 rounded-xl bg-white border-2 border-slate-200 hover:border-warning-500 hover:shadow-soft transition-all active:scale-[0.99]">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="w-12 h-12 rounded-xl inline-flex items-center justify-center text-warning-500"
+                          style="background:radial-gradient(circle at 30% 30%, rgba(194,65,12,.10), rgba(194,65,12,.02))">
+                        <i data-lucide="mail" class="w-6 h-6"></i>
+                    </span>
+                    <span class="font-bold text-orange-800">Email</span>
+                </div>
+                <div class="text-[13px] text-slate-500 leading-relaxed">Ricevi un codice di sei cifre via email a ogni accesso.</div>
+            </button>
+
+            <button data-method="sms" disabled title="Disponibile prossimamente"
+                    class="text-left p-5 rounded-xl bg-slate-50 border-2 border-slate-200 cursor-not-allowed opacity-70 relative">
+                <span class="absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider bg-slate-600 text-white px-2 py-0.5 rounded-full">Prossimamente</span>
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="w-12 h-12 rounded-xl inline-flex items-center justify-center text-slate-400 bg-slate-100">
+                        <i data-lucide="message-square-text" class="w-6 h-6"></i>
+                    </span>
+                    <span class="font-bold text-slate-600">SMS</span>
+                </div>
+                <div class="text-[13px] text-slate-500 leading-relaxed">Codice via SMS sul telefono. Funzionalità in arrivo.</div>
+            </button>
+
+        </div>
+    </section>
+
+    <!-- Numero telefono per SMS -->
+    <section class="bg-white rounded-2xl shadow-soft p-6 ring-1 ring-slate-100">
+        <h2 class="text-lg font-bold text-brand-800 flex items-center gap-2">
+            <i data-lucide="phone" class="w-5 h-5"></i>
+            Numero di telefono per SMS
+        </h2>
+        <p class="text-sm text-slate-500 mt-1 mb-4">Puoi già registrare il tuo numero — l'invio del codice SMS sarà attivato in seguito.</p>
+        <form id="form-sms" class="flex flex-col sm:flex-row gap-3 max-w-xl">
+            <div class="relative flex-1">
+                <i data-lucide="phone" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="tel" id="sms-input" name="phone"
+                       placeholder="+39 333 1234567"
+                       autocomplete="tel" inputmode="tel"
+                       class="w-full pl-9 pr-3 py-3 rounded-lg bg-slate-50 border border-slate-300 focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-500/15 focus:outline-none transition text-[15px]"
+                       required/>
+            </div>
+            <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white font-semibold px-5 py-3 rounded-lg transition shadow-sm hover:shadow">
+                <i data-lucide="save" class="w-4 h-4"></i>
+                Salva numero
+            </button>
+        </form>
+        <p id="sms-msg" class="text-[13px] mt-2 min-h-[18px]"></p>
+    </section>
+
+    <p class="text-center text-[12px] text-slate-400 pt-4">ASP Messina — Servizio Autenticazione &middot; <a id="logout-bottom" href="#" class="underline hover:text-brand-600">Esci dal pannello</a></p>
+</main>
+
+<!-- Toast container -->
+<div id="toast-host" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
+
+<script>
+    (function () {
+        const pathMatch = window.location.pathname.match(/^\/apps\/([^\/]+)/);
+        const APP_ID = pathMatch ? pathMatch[1] : '';
+        const BASE_PATH = APP_ID ? `/apps/${APP_ID}` : '';
+        const API = p => `${BASE_PATH}${p}`;
+
+        const $ = id => document.getElementById(id);
+        const fmtDate = ts => ts ? new Date(ts).toLocaleString('it-IT') : '';
+
+        function toast(text, kind = 'info') {
+            const host = $('toast-host');
+            const el = document.createElement('div');
+            const styles = {
+                ok:    'bg-emerald-50 border-emerald-300 text-emerald-800',
+                err:   'bg-rose-50 border-rose-300 text-rose-800',
+                info:  'bg-brand-50 border-brand-500/30 text-brand-800',
+            }[kind] || '';
+            const icons = { ok: 'check-circle-2', err: 'alert-triangle', info: 'info' };
+            el.className = `toast-in flex items-start gap-2 max-w-sm border ${styles} rounded-xl shadow px-4 py-3 text-sm`;
+            el.innerHTML = `<i data-lucide="${icons[kind] || 'info'}" class="w-4 h-4 mt-0.5 shrink-0"></i><div>${escapeHtml(text)}</div>`;
+            host.appendChild(el);
+            lucide.createIcons({ attrs: { 'stroke-width': 2 } });
+            setTimeout(() => { el.style.transition = 'opacity .25s'; el.style.opacity = 0; setTimeout(() => el.remove(), 260); }, 3500);
+        }
+
+        // --- Credentials description ---
+        const TYPE_META = {
+            'password':                { name: 'Password',                 icon: 'key-round',     removable: false, accent: 'slate' },
+            'otp':                     { name: 'App Authenticator (TOTP)', icon: 'smartphone',    removable: true,  accent: 'brand' },
+            'webauthn':                { name: 'Chiave di sicurezza FIDO2', icon: 'fingerprint',  removable: true,  accent: 'accent' },
+            'webauthn-passwordless':   { name: 'Passkey',                  icon: 'fingerprint',   removable: true,  accent: 'accent' },
+            'asp-otp-channel':         { name: 'Codice via canale esterno', icon: 'mail',         removable: true,  accent: 'warning' },
+        };
+        function describeCred(c) {
+            const meta = { ...(TYPE_META[c.type] || { name: c.type, icon: 'shield', removable: true, accent: 'slate' }) };
+            if (c.type === 'asp-otp-channel') {
+                if (c.channel === 'email') { meta.icon = 'mail'; meta.name = 'Email'; }
+                if (c.channel === 'sms')   { meta.icon = 'message-square-text'; meta.name = 'SMS'; }
+            }
+            const accentClasses = {
+                brand:   'text-brand-600 bg-brand-50',
+                accent:  'text-emerald-600 bg-emerald-50',
+                warning: 'text-orange-600 bg-orange-50',
+                slate:   'text-slate-500 bg-slate-100',
+            }[meta.accent] || 'text-slate-500 bg-slate-100';
+            return { ...meta, accentClasses };
+        }
+
+        async function load() {
+            try {
+                const r = await fetch(API('/api/me'));
+                if (r.status === 401) { location.href = API('/auth/login'); return; }
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const data = await r.json();
+                renderUser(data);
+                renderCreds(data.credentials);
+                lucide.createIcons({ attrs: { 'stroke-width': 2 } });
+            } catch (e) {
+                $('hello').textContent = 'Errore di caricamento';
+                console.error(e);
+            }
+        }
+
+        function renderUser(d) {
+            const p = d.profile || {};
+            const name = [p.firstName, p.lastName].filter(Boolean).join(' ') || p.username || 'Utente';
+            $('hello').innerHTML = `Ciao, <span class="text-brand-600">${escapeHtml(name)}</span>`;
+            $('user-box').innerHTML = `
+                <span class="hidden sm:inline text-white/85">${escapeHtml(p.username || '')}</span>
+                <a href="${API('/auth/logout')}" class="inline-flex items-center gap-1.5 bg-white/15 hover:bg-white/25 ring-1 ring-white/20 rounded-lg px-3 py-1.5 transition">
+                    <i data-lucide="log-out" class="w-4 h-4"></i> Esci
+                </a>`;
+            $('logout-bottom').href = API('/auth/logout');
+            const amr = Array.isArray(d.amr) ? d.amr.join(', ') : '';
+            if (amr) $('amr-info').textContent = `Sessione corrente — metodi usati per l'accesso: ${amr}`;
+        }
+
+        function renderCreds(list) {
+            const root = $('creds-list');
+            root.innerHTML = '';
+            if (!list || list.length === 0) {
+                root.innerHTML = `<div class="p-5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm flex items-start gap-2">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 mt-0.5 shrink-0"></i>
+                    <div>Nessun metodo di autenticazione a due fattori configurato. Aggiungine uno qui sotto.</div>
+                </div>`;
+                lucide.createIcons();
+                return;
+            }
+            for (const c of list) {
+                const m = describeCred(c);
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/40 hover:bg-white transition';
+                const extra = c.type === 'asp-otp-channel'
+                    ? (c.address || '')
+                    : (c.label || '');
+                row.innerHTML = `
+                    <span class="w-11 h-11 rounded-lg inline-flex items-center justify-center ${m.accentClasses} shrink-0">
+                        <i data-lucide="${m.icon}" class="w-5 h-5"></i>
+                    </span>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-slate-900">${escapeHtml(m.name)}</div>
+                        <div class="text-[13px] text-slate-500 flex flex-wrap gap-x-3">
+                            ${extra ? `<span>${escapeHtml(extra)}</span>` : ''}
+                            ${c.createdDate ? `<span class="text-slate-400">creato ${escapeHtml(fmtDate(c.createdDate))}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="shrink-0">
+                        ${m.removable ? `
+                          <button data-cred="${escapeHtml(c.id)}"
+                                  class="inline-flex items-center gap-1.5 text-rose-600 border border-rose-300 hover:bg-rose-600 hover:text-white rounded-lg px-3 py-1.5 text-sm font-semibold transition">
+                              <i data-lucide="trash-2" class="w-4 h-4"></i> Rimuovi
+                          </button>` : `<span class="text-[12px] text-slate-400">Non rimovibile</span>`}
+                    </div>`;
+                root.appendChild(row);
+            }
+            root.querySelectorAll('button[data-cred]').forEach(b => {
+                b.addEventListener('click', () => removeCred(b.dataset.cred, b));
+            });
+            lucide.createIcons();
+        }
+
+        async function removeCred(id, btn) {
+            if (!confirm('Vuoi davvero rimuovere questo metodo? Non potrai usarlo per i prossimi accessi.')) return;
+            btn.disabled = true; btn.classList.add('opacity-60','cursor-wait');
+            try {
+                const r = await fetch(API(`/api/2fa/credentials/${encodeURIComponent(id)}`), { method: 'DELETE' });
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                toast('Metodo rimosso.', 'ok');
+                await load();
+            } catch (e) {
+                toast('Errore durante la rimozione: ' + e.message, 'err');
+                btn.disabled = false; btn.classList.remove('opacity-60','cursor-wait');
+            }
+        }
+
+        function addMethod(method) {
+            location.href = API(`/api/2fa/add/${encodeURIComponent(method)}`);
+        }
+        document.querySelectorAll('[data-method]').forEach(b => {
+            b.addEventListener('click', () => { if (!b.disabled) addMethod(b.dataset.method); });
+        });
+
+        // SMS form
+        $('form-sms').addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            const phone = $('sms-input').value.trim();
+            const msg = $('sms-msg');
+            msg.textContent = ''; msg.className = 'text-[13px] mt-2 min-h-[18px]';
+            const btn = ev.target.querySelector('button[type=submit]');
+            btn.disabled = true; btn.classList.add('opacity-70','cursor-wait');
+            try {
+                const r = await fetch(API('/api/2fa/sms'), {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone }),
+                });
+                const j = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(j.error || 'errore');
+                msg.classList.add('text-emerald-600');
+                msg.textContent = 'Numero salvato.';
+                toast('Numero salvato correttamente.', 'ok');
+                load();
+            } catch (e) {
+                msg.classList.add('text-rose-600');
+                msg.textContent = 'Errore: ' + e.message;
+            } finally {
+                btn.disabled = false; btn.classList.remove('opacity-70','cursor-wait');
+            }
+        });
+
+        function escapeHtml(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+            })[c]);
+        }
+
+        // Init icons (per markup statico)
+        lucide.createIcons({ attrs: { 'stroke-width': 2 } });
+        load();
+    })();
+</script>
+</body>
+</html>
