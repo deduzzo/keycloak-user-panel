@@ -210,6 +210,13 @@ app.get('/auth/callback', async (req, res, next) => {
             { code_verifier: pkce.code_verifier, state: pkce.state, nonce: pkce.nonce },
         );
         const claims = tokenSet.claims();
+        // Decodifica payload dell'access_token (JWT) per i claim non in id_token
+        let accessClaims = null;
+        try {
+            const payloadB64 = tokenSet.access_token.split('.')[1];
+            const padded = payloadB64 + '==='.slice((payloadB64.length + 3) % 4);
+            accessClaims = JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+        } catch (e) { /* ignore */ }
         req.session.user = {
             sub: claims.sub,
             username: claims.preferred_username,
@@ -219,11 +226,16 @@ app.get('/auth/callback', async (req, res, next) => {
             family_name: claims.family_name,
             amr: claims.amr || [],
         };
+        // Salva tutti i claim (id_token + access_token) per esporli al pannello.
+        req.session.idTokenClaims = claims;
+        req.session.accessTokenClaims = accessClaims;
         req.session.tokens = {
             access_token: tokenSet.access_token,
             id_token: tokenSet.id_token,
             refresh_token: tokenSet.refresh_token,
             expires_at: tokenSet.expires_at,
+            scope: tokenSet.scope,
+            token_type: tokenSet.token_type,
         };
         delete req.session.pkce;
         // Se la sessione aveva un "returnTo" (es. dopo kc_action), riprendi
@@ -254,13 +266,33 @@ app.get('/api/me', requireAuth, async (req, res, next) => {
     try {
         const profile = await userAccountApi(req, '/');
         const credentials = await userAccountApi(req, '/credentials');
+        const tokens = req.session.tokens || {};
         res.json({
             profile,
             amr: req.session.user.amr,
             credentials: normalizeCredentials(Array.isArray(credentials) ? credentials : []),
+            session: {
+                scope: tokens.scope || null,
+                tokenType: tokens.token_type || null,
+                expiresAt: tokens.expires_at || null,
+                idTokenClaims: redactSensitive(req.session.idTokenClaims || {}),
+                accessTokenClaims: redactSensitive(req.session.accessTokenClaims || {}),
+            },
         });
     } catch (e) { next(e); }
 });
+
+/** Maschera (non rimuove, ma offusca) campi sensibili nei claim mostrati al client. */
+function redactSensitive(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    const out = Array.isArray(obj) ? [] : {};
+    const HIDE = new Set(['at_hash', 'c_hash', 'nonce']);
+    for (const [k, v] of Object.entries(obj)) {
+        if (HIDE.has(k)) continue;
+        out[k] = v;
+    }
+    return out;
+}
 
 /**
  * Account API ritorna credentials come "tipi". Trasformiamo in lista piatta
