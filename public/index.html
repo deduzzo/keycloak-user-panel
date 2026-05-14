@@ -298,6 +298,8 @@
                 const extra = c.type === 'asp-otp-channel'
                     ? (c.address || '')
                     : (c.label || '');
+                // Override removable se il server l'ha marcato come non rimovibile
+                if (c.removable === false) m.removable = false;
                 row.innerHTML = `
                     <span class="w-11 h-11 rounded-lg inline-flex items-center justify-center ${m.accentClasses} shrink-0">
                         <i data-lucide="${m.icon}" class="w-5 h-5"></i>

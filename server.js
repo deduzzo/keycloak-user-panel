@@ -42,6 +42,10 @@ const CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET || '';
 const DEV_MODE = String(process.env.DEV_MODE || 'false').toLowerCase() === 'true';
 
 const ACCOUNT_BASE = `${KEYCLOAK_ISSUER}/account`;
+// Endpoint REST custom esposto dal nostro SPI Java in Keycloak. Usato per
+// elencare TUTTI i credentials dell'utente, inclusi i tipi custom (asp-otp-channel)
+// che l'Account API standard non include nella sua risposta.
+const ASP_API_BASE = `${KEYCLOAK_ISSUER}/asp-2fa`;
 
 const CREDENTIAL_TYPE_OTP_CHANNEL = 'asp-otp-channel';
 const CHANNEL_EMAIL = 'email';
@@ -113,14 +117,14 @@ async function getOidcClient() {
 // ------------------------------------------------------------------
 // Account API call (con access token dell'utente)
 // ------------------------------------------------------------------
-async function userAccountApi(req, pathPart, opts = {}) {
+async function userApi(req, baseUrl, pathPart, opts = {}) {
     const at = req.session && req.session.tokens && req.session.tokens.access_token;
     if (!at) {
         const err = new Error('no_user_access_token');
         err.status = 401;
         throw err;
     }
-    const url = `${ACCOUNT_BASE}${pathPart}`;
+    const url = `${baseUrl}${pathPart}`;
     const res = await fetch(url, {
         ...opts,
         headers: {
@@ -146,6 +150,11 @@ async function userAccountApi(req, pathPart, opts = {}) {
     if (!text) return null;
     try { return JSON.parse(text); } catch { return text; }
 }
+
+// Account API standard (per profile + delete credential)
+const userAccountApi = (req, pathPart, opts) => userApi(req, ACCOUNT_BASE, pathPart, opts);
+// Nostro endpoint custom (lista credentials completa, incluso asp-otp-channel)
+const userAspApi = (req, pathPart, opts) => userApi(req, ASP_API_BASE, pathPart, opts);
 
 // ------------------------------------------------------------------
 // Auth middleware
@@ -265,12 +274,26 @@ app.get('/auth/logout', async (req, res, next) => {
 app.get('/api/me', requireAuth, async (req, res, next) => {
     try {
         const profile = await userAccountApi(req, '/');
-        const credentials = await userAccountApi(req, '/credentials');
+        // Lista credentials direttamente dal nostro endpoint Keycloak custom
+        // (include i tipi custom come asp-otp-channel che Account API esclude).
+        // Formato gia' piatto + normalizzato server-side (channel/address).
+        const aspCreds = await userAspApi(req, '/credentials');
+        // Aggiungiamo virtualmente la "password" come credential perche' il
+        // nostro endpoint mostra solo i stored credentials e per utenti LDAP
+        // read-only il password e' federato (non stored).
+        const credentials = Array.isArray(aspCreds) ? aspCreds.slice() : [];
+        credentials.unshift({
+            id: null,
+            type: 'password',
+            label: null,
+            createdDate: null,
+            removable: false,
+        });
         const tokens = req.session.tokens || {};
         res.json({
             profile,
             amr: req.session.user.amr,
-            credentials: normalizeCredentials(Array.isArray(credentials) ? credentials : []),
+            credentials,
             session: {
                 scope: tokens.scope || null,
                 tokenType: tokens.token_type || null,
