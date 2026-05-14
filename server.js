@@ -344,7 +344,7 @@ app.get('/api/2fa/add/:method', requireAuth, (req, res, next) => {
         webauthn: REQUIRED_ACTION_WEBAUTHN,
         totp: REQUIRED_ACTION_TOTP,
         email: REQUIRED_ACTION_EMAIL_OTP,
-        // sms: aggiungere quando la required action sara' implementata
+        sms: 'asp-configure-sms-otp',
     };
     const kcAction = map[String(req.params.method).toLowerCase()];
     if (!kcAction) return res.status(400).json({ error: 'unknown_method' });
