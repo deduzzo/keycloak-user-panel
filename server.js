@@ -137,10 +137,16 @@ async function userAccountApi(req, pathPart, opts = {}) {
 // ------------------------------------------------------------------
 function requireAuth(req, res, next) {
     if (!req.session || !req.session.user) {
-        if (req.accepts('html') && req.method === 'GET') {
-            return res.redirect(`${BASE_PATH}/auth/login`);
+        // Per gli endpoint API mai redirect (causerebbe redirect cross-origin
+        // bloccato da CORS quando il browser fa fetch): rispondi 401 JSON e
+        // lascia al client gestire la redirezione al login.
+        const isApi = req.path.startsWith('/api/') || req.xhr ||
+                      req.get('accept') === 'application/json';
+        if (isApi || req.method !== 'GET') {
+            return res.status(401).json({ error: 'not_authenticated' });
         }
-        return res.status(401).json({ error: 'not_authenticated' });
+        // Per le pagine HTML: redirect normale al login
+        return res.redirect(`${BASE_PATH}/auth/login`);
     }
     next();
 }

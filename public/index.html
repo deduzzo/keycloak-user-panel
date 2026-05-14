@@ -214,8 +214,14 @@
 
         async function load() {
             try {
-                const r = await fetch(API('/api/me'));
-                if (r.status === 401) { location.href = API('/auth/login'); return; }
+                const r = await fetch(API('/api/me'), {
+                    headers: { 'Accept': 'application/json' },
+                    redirect: 'manual',
+                });
+                if (r.status === 401 || r.type === 'opaqueredirect') {
+                    location.href = API('/auth/login');
+                    return;
+                }
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 const data = await r.json();
                 renderUser(data);
@@ -289,7 +295,7 @@
             if (!confirm('Vuoi davvero rimuovere questo metodo? Non potrai usarlo per i prossimi accessi.')) return;
             btn.disabled = true; btn.classList.add('opacity-60','cursor-wait');
             try {
-                const r = await fetch(API(`/api/2fa/credentials/${encodeURIComponent(id)}`), { method: 'DELETE' });
+                const r = await fetch(API(`/api/2fa/credentials/${encodeURIComponent(id)}`), { method: 'DELETE', headers: { 'Accept': 'application/json' } });
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 toast('Metodo rimosso.', 'ok');
                 await load();
@@ -317,7 +323,7 @@
             try {
                 const r = await fetch(API('/api/2fa/sms'), {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({ phone }),
                 });
                 const j = await r.json().catch(() => ({}));
