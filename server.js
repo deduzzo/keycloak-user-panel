@@ -60,7 +60,19 @@ console.log('  CLIENT_ID:      ', CLIENT_ID);
 console.log('  DEV_MODE:       ', DEV_MODE);
 
 const app = express();
-app.set('trust proxy', 1);
+// Trust il reverse proxy ASP-WS: ci passa attraverso e termina HTTPS lui.
+// Express deve fidarsi di X-Forwarded-Proto / X-Forwarded-For per determinare
+// req.secure e settare il cookie di sessione correttamente.
+app.set('trust proxy', true);
+
+// Log diagnostico: stampiamo per ogni richiesta lo schema "visto" dietro proxy
+app.use((req, _res, next) => {
+    if (process.env.DEBUG_REQ) {
+        console.log(`[req] ${req.method} ${req.originalUrl} secure=${req.secure} xfp=${req.get('x-forwarded-proto')}`);
+    }
+    next();
+});
+
 app.use(express.json({ limit: '64kb' }));
 app.use(express.urlencoded({ extended: true, limit: '64kb' }));
 app.use(cookieParser());
@@ -69,10 +81,13 @@ app.use(session({
     name: 'asp_panel_sid',
     resave: false,
     saveUninitialized: false,
+    proxy: true,
     cookie: {
         httpOnly: true,
         sameSite: 'lax',
-        secure: !DEV_MODE,
+        // 'auto' = secure solo se req.secure (X-Forwarded-Proto=https) e' true.
+        // In DEV_MODE forziamo false per consentire localhost http.
+        secure: DEV_MODE ? false : 'auto',
         maxAge: 12 * 60 * 60 * 1000,
     },
 }));
@@ -182,6 +197,12 @@ app.get('/auth/callback', async (req, res, next) => {
     try {
         const client = await getOidcClient();
         const pkce = req.session.pkce || {};
+        // Diagnostica: se la sessione PKCE e' vuota qui, il cookie di sessione
+        // non e' arrivato (di solito problema secure/sameSite dietro proxy).
+        if (!pkce.code_verifier) {
+            console.error('[auth/callback] req.session.pkce is empty - session cookie not persisted across redirect. ' +
+                          `cookie name=asp_panel_sid. xfp=${req.get('x-forwarded-proto')} secure=${req.secure}`);
+        }
         const params = client.callbackParams(req);
         const tokenSet = await client.callback(
             `${APP_PUBLIC_URL}/auth/callback`,
