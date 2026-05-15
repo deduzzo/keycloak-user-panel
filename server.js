@@ -454,13 +454,12 @@ app.get('/api/2fa/add', requireAuth, async (req, res, next) => {
     console.log('[/api/2fa/add] user=', req.session.tokens?.access_token ? '(autenticato)' : '(NO TOKEN)', 'redirect a kc_action=asp-pick-2fa-method');
     req.session.returnTo = `${BASE_PATH}/`;
     try {
-        // NB: NON passiamo prompt=login. La sessione SSO Keycloak e' valida
-        // (l'utente e' in mini-app autenticato) e il flow AIA gestira' da solo
-        // l'eventuale step-up. prompt=login con IdP SPID/CIE causava codice
-        // SPID scaduto durante il giro e "Errore imprevisto durante la
-        // gestione della richiesta di autenticazione al provider di identita'".
+        // prompt=login OBBLIGATORIO per AIA: senza, Keycloak con SSO valido
+        // salta completamente il processing delle RA (incluso requiredActionChallenge).
+        // Il fresh login ricarica user.requiredActions e processa la RA pending.
         await startOidc(req, res, {
             kc_action: 'asp-pick-2fa-method',
+            prompt: 'login',
         });
     } catch (e) { next(e); }
 });
@@ -469,13 +468,12 @@ app.get('/api/2fa/add/:method', requireAuth, async (req, res, next) => {
     console.log('[/api/2fa/add/:method] method=', req.params.method, 'redirect a kc_action=asp-pick-2fa-method');
     req.session.returnTo = `${BASE_PATH}/`;
     try {
-        // NB: NON passiamo prompt=login. La sessione SSO Keycloak e' valida
-        // (l'utente e' in mini-app autenticato) e il flow AIA gestira' da solo
-        // l'eventuale step-up. prompt=login con IdP SPID/CIE causava codice
-        // SPID scaduto durante il giro e "Errore imprevisto durante la
-        // gestione della richiesta di autenticazione al provider di identita'".
+        // prompt=login OBBLIGATORIO per AIA: senza, Keycloak con SSO valido
+        // salta completamente il processing delle RA (incluso requiredActionChallenge).
+        // Il fresh login ricarica user.requiredActions e processa la RA pending.
         await startOidc(req, res, {
             kc_action: 'asp-pick-2fa-method',
+            prompt: 'login',
         });
     } catch (e) { next(e); }
 });
