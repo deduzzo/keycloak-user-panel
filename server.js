@@ -447,20 +447,33 @@ app.put('/api/2fa/credentials/:credId/label', requireAuth, async (req, res, next
     } catch (e) { next(e); }
 });
 
-// Pulsante UNICO "Aggiungi nuovo metodo 2FA". Redirect a Keycloak con
-// kc_action=asp-pick-2fa-method (mini-flow custom che mostra la pagina di
-// scelta e gestisce inline il setup di tutti i metodi).
+// Pulsante UNICO "Aggiungi nuovo metodo 2FA".
+// STRATEGIA: il pattern AIA (kc_action) di Keycloak 26.5.4 non riesce a
+// triggerare la RA asp-pick-2fa-method (kc_action_executing rimane null,
+// requiredActionChallenge mai chiamato). Workaround:
+//   1. Chiamiamo POST /realms/asp/asp-2fa/pick-method che aggiunge la RA
+//      pending all'utente via Bearer token.
+//   2. Logout dell'utente.
+//   3. Redirect alla home; il browser fara' nuovo login.
+//   4. Al re-login Keycloak vede user.requiredActions=['asp-pick-2fa-method']
+//      e mostra la pagina di scelta.
 app.get('/api/2fa/add', requireAuth, async (req, res, next) => {
-    console.log('[/api/2fa/add] user=', req.session.tokens?.access_token ? '(autenticato)' : '(NO TOKEN)', 'redirect a kc_action=asp-pick-2fa-method');
-    req.session.returnTo = `${BASE_PATH}/`;
+    console.log('[/api/2fa/add] user=', req.session.tokens?.access_token ? '(autenticato)' : '(NO TOKEN)');
     try {
-        // prompt=login OBBLIGATORIO per AIA: senza, Keycloak con SSO valido
-        // salta completamente il processing delle RA (incluso requiredActionChallenge).
-        // Il fresh login ricarica user.requiredActions e processa la RA pending.
-        await startOidc(req, res, {
-            kc_action: 'asp-pick-2fa-method',
-            prompt: 'login',
+        // 1) Add RA pending via Bearer token
+        const r = await userApi(req, ASP_API_BASE, '/pick-method', {method:'POST'});
+        console.log('[/api/2fa/add] pick-method response:', JSON.stringify(r));
+
+        // 2) Logout Keycloak + redirect alla home (re-login pulito)
+        const idToken = req.session.tokens?.id_token;
+        const logoutParams = new URLSearchParams({
+            client_id: CLIENT_ID,
+            post_logout_redirect_uri: APP_PUBLIC_URL + BASE_PATH + '/',
         });
+        if (idToken) logoutParams.set('id_token_hint', idToken);
+        const logoutUrl = `${KEYCLOAK_ISSUER}/protocol/openid-connect/logout?${logoutParams.toString()}`;
+        req.session.destroy(() => {});
+        res.redirect(logoutUrl);
     } catch (e) { next(e); }
 });
 
