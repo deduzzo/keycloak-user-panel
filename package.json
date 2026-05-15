@@ -1,6 +1,6 @@
 {
   "name": "keycloak-user-panel",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pannello self-service ASP Messina per gestire i propri metodi di autenticazione a due fattori (FIDO2, email, telefono) tramite Keycloak.",
   "private": true,
   "license": "UNLICENSED",

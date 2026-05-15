@@ -73,78 +73,26 @@
         </div>
     </section>
 
-    <!-- Aggiungi metodo -->
+    <!-- Aggiungi metodo: pulsante UNICO. Porta alla pagina di scelta custom
+         del Keycloak (asp-pick-2fa-method) dove l'utente sceglie TOTP / FIDO2 /
+         Email / SMS e completa il setup. -->
     <section class="bg-white rounded-2xl shadow-soft p-6 ring-1 ring-slate-100">
         <h2 class="text-lg font-bold text-brand-800 flex items-center gap-2">
             <i data-lucide="plus-circle" class="w-5 h-5"></i>
             Aggiungi un nuovo metodo
         </h2>
-        <p class="text-sm text-slate-500 mt-1 mb-4">Verrai brevemente reindirizzato al sistema di accesso ASP per completare la registrazione.</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
-            <button data-method="totp"
-                    class="group text-left p-5 rounded-xl bg-white border-2 border-slate-200 hover:border-brand-500 hover:shadow-soft transition-all active:scale-[0.99]">
-                <div class="flex items-center gap-3 mb-2">
-                    <span class="icon-tile w-12 h-12 rounded-xl inline-flex items-center justify-center text-brand-600">
-                        <i data-lucide="smartphone" class="w-6 h-6"></i>
-                    </span>
-                    <span class="font-bold text-brand-800">App Authenticator</span>
-                </div>
-                <div class="text-[13px] text-slate-500 leading-relaxed">Google Authenticator, FreeOTP, Microsoft Authenticator. Scansiona un QR code con il tuo smartphone.</div>
-            </button>
-
-            <button data-method="webauthn"
-                    class="group text-left p-5 rounded-xl bg-white border-2 border-slate-200 hover:border-accent-500 hover:shadow-soft transition-all active:scale-[0.99]">
-                <div class="flex items-center gap-3 mb-2">
-                    <span class="w-12 h-12 rounded-xl inline-flex items-center justify-center text-accent-500"
-                          style="background:radial-gradient(circle at 30% 30%, rgba(10,133,84,.10), rgba(10,133,84,.02))">
-                        <i data-lucide="fingerprint" class="w-6 h-6"></i>
-                    </span>
-                    <span class="font-bold text-emerald-800">Chiave o Passkey (FIDO2)</span>
-                </div>
-                <div class="text-[13px] text-slate-500 leading-relaxed">YubiKey, Touch ID, Windows Hello. Sicurezza alta, no codici da digitare.</div>
-            </button>
-
-            <button data-method="email"
-                    class="group text-left p-5 rounded-xl bg-white border-2 border-slate-200 hover:border-warning-500 hover:shadow-soft transition-all active:scale-[0.99]">
-                <div class="flex items-center gap-3 mb-2">
-                    <span class="w-12 h-12 rounded-xl inline-flex items-center justify-center text-warning-500"
-                          style="background:radial-gradient(circle at 30% 30%, rgba(194,65,12,.10), rgba(194,65,12,.02))">
-                        <i data-lucide="mail" class="w-6 h-6"></i>
-                    </span>
-                    <span class="font-bold text-orange-800">Email</span>
-                </div>
-                <div class="text-[13px] text-slate-500 leading-relaxed">Ricevi un codice di sei cifre via email a ogni accesso.</div>
-            </button>
-
-            <button data-method="sms" disabled title="Disponibile prossimamente"
-                    class="text-left p-5 rounded-xl bg-slate-50 border-2 border-slate-200 cursor-not-allowed opacity-70 relative">
-                <span class="absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider bg-slate-600 text-white px-2 py-0.5 rounded-full">Prossimamente</span>
-                <div class="flex items-center gap-3 mb-2">
-                    <span class="w-12 h-12 rounded-xl inline-flex items-center justify-center text-slate-400 bg-slate-100">
-                        <i data-lucide="message-square-text" class="w-6 h-6"></i>
-                    </span>
-                    <span class="font-bold text-slate-600">SMS</span>
-                </div>
-                <div class="text-[13px] text-slate-500 leading-relaxed">Codice via SMS sul telefono. Funzionalità in arrivo.</div>
-            </button>
-
-        </div>
-    </section>
-
-    <!-- Numero telefono per SMS -->
-    <section class="bg-white rounded-2xl shadow-soft p-6 ring-1 ring-slate-100">
-        <h2 class="text-lg font-bold text-brand-800 flex items-center gap-2">
-            <i data-lucide="phone" class="w-5 h-5"></i>
-            Numero di telefono per SMS
-        </h2>
-        <p class="text-sm text-slate-500 mt-1 mb-4">Registra il numero su cui vuoi ricevere i codici via SMS. La verifica via SMS sarà attivata in seguito.</p>
-        <button id="btn-sms"
-                class="inline-flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white font-semibold px-5 py-3 rounded-lg transition shadow-sm hover:shadow">
-            <i data-lucide="phone" class="w-4 h-4"></i>
-            Configura numero SMS
+        <p class="text-sm text-slate-500 mt-1 mb-4">
+            Verrai reindirizzato al sistema di accesso ASP per scegliere il metodo e completare la registrazione (TOTP, chiave FIDO2, Email o SMS).
+        </p>
+        <button id="add-method-btn"
+                class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold shadow-soft transition-all active:scale-[0.99]">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+            Aggiungi metodo
         </button>
     </section>
+
+    <!-- Sezione "Numero telefono per SMS" rimossa: ora SMS si configura
+         dal pulsante "Aggiungi metodo" della sezione sopra (scelta unica). -->
 
     <!-- Dettagli sessione / claim -->
     <section class="bg-white rounded-2xl shadow-soft p-6 ring-1 ring-slate-100">
@@ -190,6 +138,10 @@
     </section>
 
     <p class="text-center text-[12px] text-slate-400 pt-4">ASP Messina — Servizio Autenticazione &middot; <a id="logout-bottom" href="#" class="underline hover:text-brand-600">Esci dal pannello</a></p>
+    <footer class="text-center text-[12px] text-slate-400 pt-2 pb-6 flex flex-col items-center gap-1">
+        <div>Made by <strong>Ing. Roberto De Domenico</strong> with &#10084;&#65039;</div>
+        <div id="app-version" class="text-[11px] text-slate-300 font-mono">v… caricamento…</div>
+    </footer>
 </main>
 
 <!-- Toast container -->
@@ -350,12 +302,24 @@
             }
         }
 
-        function addMethod(method) {
-            location.href = API(`/api/2fa/add/${encodeURIComponent(method)}`);
+        // Pulsante UNICO "Aggiungi metodo": porta a Keycloak con
+        // kc_action=asp-pick-2fa-method (gestito server-side al path /api/2fa/add).
+        function addMethod() {
+            location.href = API('/api/2fa/add');
         }
-        document.querySelectorAll('[data-method]').forEach(b => {
-            b.addEventListener('click', () => { if (!b.disabled) addMethod(b.dataset.method); });
-        });
+        const addBtn = document.getElementById('add-method-btn');
+        if (addBtn) addBtn.addEventListener('click', addMethod);
+
+        // Carica versione e la mostra nel footer
+        (async () => {
+            try {
+                const r = await fetch(API('/api/version'));
+                if (!r.ok) return;
+                const v = await r.json();
+                const el = document.getElementById('app-version');
+                if (el) el.textContent = `v${v.version} · build ${v.buildTime.replace('T',' ').slice(0,16)}`;
+            } catch (_) {}
+        })();
 
         // --- Dettagli sessione (collapse) ---
         function renderSessionDetails(d) {
@@ -375,9 +339,8 @@
 
         // Bottone "Configura numero SMS" → redirect Keycloak con kc_action.
         // L'utente inserira'/confermera' il numero direttamente sulla pagina
-        // Keycloak (RA asp-configure-sms-otp), che salvera' il credential
-        // asp-otp-channel/sms. Tutto via OIDC, niente admin token.
-        $('btn-sms').addEventListener('click', () => addMethod('sms'));
+        // Sezione "Configura SMS" rimossa: SMS si configura ora dal
+        // pulsante unico "Aggiungi metodo". Il listener su #btn-sms e' rimosso.
 
         function escapeHtml(s) {
             return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({

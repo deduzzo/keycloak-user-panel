@@ -269,6 +269,15 @@ app.get('/auth/logout', async (req, res, next) => {
 });
 
 // ------------------------------------------------------------------
+// API - versione app (utile per verificare deploy/cache invalidation)
+// ------------------------------------------------------------------
+const APP_VERSION = require('./package.json').version;
+const APP_BUILD_TIME = new Date().toISOString();
+app.get('/api/version', (req, res) => {
+    res.json({ version: APP_VERSION, buildTime: APP_BUILD_TIME, name: 'keycloak-user-panel' });
+});
+
+// ------------------------------------------------------------------
 // API - info utente + gestione 2FA (via Account API dell'utente)
 // ------------------------------------------------------------------
 app.get('/api/me', requireAuth, async (req, res, next) => {
