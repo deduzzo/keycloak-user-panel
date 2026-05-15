@@ -366,47 +366,50 @@ function normalizeCredentials(types) {
 }
 
 // Rimuove un credential dell'utente (FIDO2, OTP, asp-otp-channel).
-// L'Account API non permette di rimuovere credentials di altri utenti:
-// la sicurezza e' garantita da Keycloak stesso.
 //
-// SECURITY: dopo la rimozione, controlliamo se rimane almeno UN metodo 2FA.
-// Se non ne resta nessuno, ritorniamo forceLogout=true al client: la mini-app
-// fara' logout cosi' al prossimo login l'utente DEVE registrare almeno un
-// 2FA (flow browser-2fa-obbligatorio + AspMethodSelector lo costringono).
+// SECURITY (anti-takeover): pre-check sui metodi 2FA dell'utente. Se la
+// rimozione lascerebbe l'utente con ZERO metodi 2FA, RIFIUTIAMO l'operazione
+// con HTTP 409. L'utente deve PRIMA aggiungere un nuovo metodo e solo dopo
+// potra' rimuovere il vecchio. In questo modo non si crea mai una finestra
+// in cui l'account e' protetto solo da password (che un attaccante con
+// credenziali sottratte potrebbe sfruttare per registrare il proprio 2FA).
 app.delete('/api/2fa/credentials/:credId', requireAuth, async (req, res, next) => {
     try {
-        await userAccountApi(req, `/credentials/${encodeURIComponent(req.params.credId)}`, {
-            method: 'DELETE',
-        });
+        const credIdToDelete = req.params.credId;
 
-        // Conta i metodi 2FA rimasti (custom endpoint che include asp-otp-channel)
-        let remaining2fa = 0;
+        // 1) Pre-check: conta i metodi 2FA attuali
+        let methods = [];
         try {
             const credsResp = await userApi(req, ASP_API_BASE, '/credentials', {});
             const creds = Array.isArray(credsResp) ? credsResp : (credsResp.credentials || []);
-            remaining2fa = creds.filter(c => {
+            methods = creds.filter(c => {
                 const t = (c.type || '').toLowerCase();
                 if (t === 'webauthn' || t === 'webauthn-passwordless') return true;
                 if (t === 'otp') return true;
                 if (t === CREDENTIAL_TYPE_OTP_CHANNEL) {
-                    // Conta solo channel utilizzabili come 2FA (email).
-                    // userLabel di solito contiene il channel.
                     const label = (c.userLabel || '').toLowerCase();
                     return label.includes('email') || label.includes('mail');
                 }
                 return false;
-            }).length;
-        } catch (_) { /* fallback: assumiamo che ci siano metodi */ }
+            });
+        } catch (_) { /* se fallisce il pre-check, prosegui con la rimozione */ }
 
-        if (remaining2fa === 0) {
-            // FORCE LOGOUT: l'utente ha rimosso l'ultimo 2FA. Al prossimo accesso
-            // il flow browser-2fa-obbligatorio + AspMethodSelector lo obbligano a
-            // registrarne uno nuovo. Distruggiamo la sessione locale e ritorniamo
-            // l'URL di logout di Keycloak che il client seguira'.
-            const logoutUrl = buildLogoutUrl(req);
-            req.session.destroy(() => {});
-            return res.json({ ok: true, forceLogout: true, logoutUrl });
+        // 2) Verifica se il credential da rimuovere e' un metodo 2FA E sarebbe l'ultimo
+        const isTarget2fa = methods.some(m => m.id === credIdToDelete);
+        if (isTarget2fa && methods.length <= 1) {
+            return res.status(409).json({
+                ok: false,
+                error: 'last_2fa_method',
+                message: 'Devi avere almeno un metodo di sicurezza (2FA) attivo. Aggiungi un nuovo metodo prima di rimuovere questo.',
+            });
         }
+
+        // 3) Procedi con la rimozione
+        await userAccountApi(req, `/credentials/${encodeURIComponent(credIdToDelete)}`, {
+            method: 'DELETE',
+        });
+
+        const remaining2fa = isTarget2fa ? methods.length - 1 : methods.length;
         res.json({ ok: true, remaining2fa });
     } catch (e) { next(e); }
 });
@@ -434,24 +437,24 @@ app.put('/api/2fa/credentials/:credId/label', requireAuth, async (req, res, next
     } catch (e) { next(e); }
 });
 
-// Aggiunta di un metodo 2FA: redirect a Keycloak con kc_action
-// (Application Initiated Action). L'utente viene ri-autenticato (la sessione
-// SSO probabilmente lo riconosce gia') e Keycloak esegue la required action
-// indicata, restituendo poi l'utente all'app via callback.
-app.get('/api/2fa/add/:method', requireAuth, (req, res, next) => {
-    const map = {
-        webauthn: REQUIRED_ACTION_WEBAUTHN,
-        totp: REQUIRED_ACTION_TOTP,
-        email: REQUIRED_ACTION_EMAIL_OTP,
-        sms: 'asp-configure-sms-otp',
-    };
-    const kcAction = map[String(req.params.method).toLowerCase()];
-    if (!kcAction) return res.status(400).json({ error: 'unknown_method' });
-
-    // Salviamo che dopo il callback torniamo alla dashboard
+// Pulsante UNICO "Aggiungi nuovo metodo 2FA". Redirect a Keycloak con
+// kc_action=asp-pick-2fa-method (mini-flow custom che mostra la pagina di
+// scelta e gestisce inline il setup di tutti i metodi - bypass dei problemi
+// con le RA Email/SMS skippate da Keycloak in AIA quando l'utente ha gia' 2FA).
+app.get('/api/2fa/add', requireAuth, (req, res, next) => {
     req.session.returnTo = `${BASE_PATH}/`;
     startOidc(req, res, {
-        kc_action: kcAction,
+        kc_action: 'asp-pick-2fa-method',
+        prompt: 'login',
+    }).catch(next);
+});
+
+// (Legacy) Endpoint per-metodo: redirige al nuovo pulsante unico.
+// Tenuto per retro-compatibilita' con vecchi link salvati.
+app.get('/api/2fa/add/:method', requireAuth, (req, res, next) => {
+    req.session.returnTo = `${BASE_PATH}/`;
+    startOidc(req, res, {
+        kc_action: 'asp-pick-2fa-method',
         prompt: 'login',
     }).catch(next);
 });

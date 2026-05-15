@@ -331,16 +331,17 @@
             btn.disabled = true; btn.classList.add('opacity-60','cursor-wait');
             try {
                 const r = await fetch(API(`/api/2fa/credentials/${encodeURIComponent(id)}`), { method: 'DELETE', headers: { 'Accept': 'application/json' } });
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 const body = await r.json().catch(() => ({}));
-                // Se era l'ULTIMO metodo 2FA, il server forza il logout per
-                // obbligare l'utente a configurarne uno nuovo al prossimo
-                // accesso (flow browser-2fa-obbligatorio).
-                if (body.forceLogout && body.logoutUrl) {
-                    toast('Hai rimosso l\'ultimo metodo 2FA. Verrai disconnesso: al prossimo accesso dovrai configurarne uno nuovo.', 'ok');
-                    setTimeout(() => { window.location.href = body.logoutUrl; }, 1800);
+                // SECURITY: il server impedisce di rimuovere l'ULTIMO metodo 2FA
+                // (per evitare finestre in cui l'account e' protetto solo da
+                // password e un attaccante con credenziali rubate puo' registrare
+                // il proprio 2FA al prossimo login).
+                if (r.status === 409 && body.error === 'last_2fa_method') {
+                    toast(body.message || 'Devi avere almeno un metodo 2FA attivo. Aggiungi un nuovo metodo prima di rimuovere questo.', 'err');
+                    btn.disabled = false; btn.classList.remove('opacity-60','cursor-wait');
                     return;
                 }
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 toast('Metodo rimosso.', 'ok');
                 await load();
             } catch (e) {
