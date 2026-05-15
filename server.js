@@ -194,6 +194,7 @@ function startOidc(req, res, extraParams = {}) {
             code_challenge_method: 'S256',
             ...extraParams,
         });
+        console.log('[startOidc] redirect →', authUrl);
         res.redirect(authUrl);
     })();
 }
@@ -448,24 +449,27 @@ app.put('/api/2fa/credentials/:credId/label', requireAuth, async (req, res, next
 
 // Pulsante UNICO "Aggiungi nuovo metodo 2FA". Redirect a Keycloak con
 // kc_action=asp-pick-2fa-method (mini-flow custom che mostra la pagina di
-// scelta e gestisce inline il setup di tutti i metodi - bypass dei problemi
-// con le RA Email/SMS skippate da Keycloak in AIA quando l'utente ha gia' 2FA).
-app.get('/api/2fa/add', requireAuth, (req, res, next) => {
+// scelta e gestisce inline il setup di tutti i metodi).
+app.get('/api/2fa/add', requireAuth, async (req, res, next) => {
+    console.log('[/api/2fa/add] user=', req.session.tokens?.access_token ? '(autenticato)' : '(NO TOKEN)', 'redirect a kc_action=asp-pick-2fa-method');
     req.session.returnTo = `${BASE_PATH}/`;
-    startOidc(req, res, {
-        kc_action: 'asp-pick-2fa-method',
-        prompt: 'login',
-    }).catch(next);
+    try {
+        await startOidc(req, res, {
+            kc_action: 'asp-pick-2fa-method',
+            prompt: 'login',
+        });
+    } catch (e) { next(e); }
 });
 
-// (Legacy) Endpoint per-metodo: redirige al nuovo pulsante unico.
-// Tenuto per retro-compatibilita' con vecchi link salvati.
-app.get('/api/2fa/add/:method', requireAuth, (req, res, next) => {
+app.get('/api/2fa/add/:method', requireAuth, async (req, res, next) => {
+    console.log('[/api/2fa/add/:method] method=', req.params.method, 'redirect a kc_action=asp-pick-2fa-method');
     req.session.returnTo = `${BASE_PATH}/`;
-    startOidc(req, res, {
-        kc_action: 'asp-pick-2fa-method',
-        prompt: 'login',
-    }).catch(next);
+    try {
+        await startOidc(req, res, {
+            kc_action: 'asp-pick-2fa-method',
+            prompt: 'login',
+        });
+    } catch (e) { next(e); }
 });
 
 // ------------------------------------------------------------------
