@@ -332,6 +332,15 @@
             try {
                 const r = await fetch(API(`/api/2fa/credentials/${encodeURIComponent(id)}`), { method: 'DELETE', headers: { 'Accept': 'application/json' } });
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const body = await r.json().catch(() => ({}));
+                // Se era l'ULTIMO metodo 2FA, il server forza il logout per
+                // obbligare l'utente a configurarne uno nuovo al prossimo
+                // accesso (flow browser-2fa-obbligatorio).
+                if (body.forceLogout && body.logoutUrl) {
+                    toast('Hai rimosso l\'ultimo metodo 2FA. Verrai disconnesso: al prossimo accesso dovrai configurarne uno nuovo.', 'ok');
+                    setTimeout(() => { window.location.href = body.logoutUrl; }, 1800);
+                    return;
+                }
                 toast('Metodo rimosso.', 'ok');
                 await load();
             } catch (e) {

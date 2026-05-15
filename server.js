@@ -368,14 +368,58 @@ function normalizeCredentials(types) {
 // Rimuove un credential dell'utente (FIDO2, OTP, asp-otp-channel).
 // L'Account API non permette di rimuovere credentials di altri utenti:
 // la sicurezza e' garantita da Keycloak stesso.
+//
+// SECURITY: dopo la rimozione, controlliamo se rimane almeno UN metodo 2FA.
+// Se non ne resta nessuno, ritorniamo forceLogout=true al client: la mini-app
+// fara' logout cosi' al prossimo login l'utente DEVE registrare almeno un
+// 2FA (flow browser-2fa-obbligatorio + AspMethodSelector lo costringono).
 app.delete('/api/2fa/credentials/:credId', requireAuth, async (req, res, next) => {
     try {
         await userAccountApi(req, `/credentials/${encodeURIComponent(req.params.credId)}`, {
             method: 'DELETE',
         });
-        res.json({ ok: true });
+
+        // Conta i metodi 2FA rimasti (custom endpoint che include asp-otp-channel)
+        let remaining2fa = 0;
+        try {
+            const credsResp = await userApi(req, ASP_API_BASE, '/credentials', {});
+            const creds = Array.isArray(credsResp) ? credsResp : (credsResp.credentials || []);
+            remaining2fa = creds.filter(c => {
+                const t = (c.type || '').toLowerCase();
+                if (t === 'webauthn' || t === 'webauthn-passwordless') return true;
+                if (t === 'otp') return true;
+                if (t === CREDENTIAL_TYPE_OTP_CHANNEL) {
+                    // Conta solo channel utilizzabili come 2FA (email).
+                    // userLabel di solito contiene il channel.
+                    const label = (c.userLabel || '').toLowerCase();
+                    return label.includes('email') || label.includes('mail');
+                }
+                return false;
+            }).length;
+        } catch (_) { /* fallback: assumiamo che ci siano metodi */ }
+
+        if (remaining2fa === 0) {
+            // FORCE LOGOUT: l'utente ha rimosso l'ultimo 2FA. Al prossimo accesso
+            // il flow browser-2fa-obbligatorio + AspMethodSelector lo obbligano a
+            // registrarne uno nuovo. Distruggiamo la sessione locale e ritorniamo
+            // l'URL di logout di Keycloak che il client seguira'.
+            const logoutUrl = buildLogoutUrl(req);
+            req.session.destroy(() => {});
+            return res.json({ ok: true, forceLogout: true, logoutUrl });
+        }
+        res.json({ ok: true, remaining2fa });
     } catch (e) { next(e); }
 });
+
+function buildLogoutUrl(req) {
+    const idToken = req.session.tokens?.id_token;
+    const params = new URLSearchParams({
+        client_id: CLIENT_ID,
+        post_logout_redirect_uri: APP_PUBLIC_URL + BASE_PATH + '/',
+    });
+    if (idToken) params.set('id_token_hint', idToken);
+    return `${KEYCLOAK_ISSUER}/protocol/openid-connect/logout?${params.toString()}`;
+}
 
 // Endpoint per RINOMINARE la label di un credential (Account API supporta PUT label)
 app.put('/api/2fa/credentials/:credId/label', requireAuth, async (req, res, next) => {
